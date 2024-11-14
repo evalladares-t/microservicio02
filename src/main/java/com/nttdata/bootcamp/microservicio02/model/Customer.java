@@ -21,5 +21,5 @@ public class Customer {
   private String firstName;
   private String lastName;
   private DocumentIdentity documentIdentity;
-  private boolean isActive;
+  private Boolean isActive;
 }

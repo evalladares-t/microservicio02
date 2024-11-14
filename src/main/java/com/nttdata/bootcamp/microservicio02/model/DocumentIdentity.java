@@ -12,7 +12,7 @@ import lombok.Setter;
 public class DocumentIdentity {
 
   private String number;
-  private String typeDocumentIdentity;
+  private TypeDocumentIdentity typeDocumentIdentity;
   private boolean isActive;
 
 }

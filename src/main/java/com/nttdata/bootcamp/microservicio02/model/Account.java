@@ -7,6 +7,7 @@ import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -21,15 +22,14 @@ public class Account {
   @Id
   private String id = UUID.randomUUID().toString();
   private String accountNumber;
-  private Customer customer;
+  private String customer;
   private AccountType accountType;
   private String currency;
-  private Double amountAvailable;
-  private Double minimumOpeningAmount;
+  private BigDecimal amountAvailable;
   private Integer transactionLimit;
   private Double commissionRate;
-  private String status;
-  private List<Customer> holders = new ArrayList<>();  // Lista de titulares
-  private List<Customer> authorizedSigners = new ArrayList<>();
+  private Boolean active;
+  private List<String> holders = new ArrayList<>();  // Lista de titulares
+  private List<String> authorizedSigners = new ArrayList<>();
 
 }

@@ -11,17 +11,13 @@ public interface AccountService {
 
   Mono<Account> findById(String accountId);
 
-  Mono<Account> findAccountByCustomerId(Customer customerId);
-
   Flux<Account> findAll();
 
-  Mono<Account> update(Account account);
+  Mono<Account> update(Account account, String accountId);
 
-  Mono<Account> change(Account account);
+  Mono<Account> change(Account account, String accountId);
 
   Mono<Account> remove(String accountId);
-
-  Mono<Customer> findByIdCustomerService(String customerId);
 
   Flux<Account> findByCustomerId(String id);
 

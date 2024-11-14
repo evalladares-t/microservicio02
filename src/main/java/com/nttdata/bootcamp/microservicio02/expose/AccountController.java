@@ -12,7 +12,7 @@ import reactor.core.publisher.Mono;
 
 @RestController
 @Slf4j
-@RequestMapping("api/v1")
+@RequestMapping("api/v1/account")
 public class AccountController {
 
   private AccountService accountService;
@@ -21,49 +21,42 @@ public class AccountController {
     this.accountService = accountService;
   }
 
-  @GetMapping("/customers/{id}")
-  public Mono<Customer> findByIdCustomerService(@PathVariable("id") String customerId) {
-    log.info("Obtengo customer by id:", customerId);
-    return accountService.findByIdCustomerService(customerId);
-  }
-
-
-  @GetMapping("/accounts/{id}")
-  public Mono<Account> byId(@PathVariable("id") String id) {
-    log.info("byId>>>>>");
+  @GetMapping("/{id}")
+  public Mono<Account> findbyId(@PathVariable("id") String id) {
+    log.info("Find by id a account in the controller.");
     return accountService.findById(id);
   }
 
-  @GetMapping("/accounts-all")
+  @GetMapping("/list")
   public Flux<Account> findAll() {
-    log.info("findAll>>>>>");
+    log.info("List all accounts in the controller.");
     return accountService.findAll();
   }
-  @PostMapping("/account/")
+  @PostMapping("/")
   @ResponseStatus(HttpStatus.CREATED)
   public Mono<Account> create(@RequestBody Account account) {
-    log.info("create>>>>>");
+    log.info("Create an account in the controller.");
     return accountService.create(account);
   }
 
-  @PutMapping("/account/")
-  public Mono<ResponseEntity<Account>> update(@RequestBody Account account) {
-    log.info("update>>>>>");
-    return accountService.update(account)
+  @PutMapping("/{id}")
+  public Mono<ResponseEntity<Account>> update(@RequestBody Account account, @PathVariable("id") String accountId) {
+    log.info("Update an account in the controller.");
+    return accountService.update(account, accountId)
             .flatMap(accountUpdate -> Mono.just(ResponseEntity.ok(accountUpdate)))
             .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
   }
-  @PatchMapping("/accounts")
-  public Mono<ResponseEntity<Account>> change(@RequestBody Account account) {
-    log.info("change>>>>>");
-    return accountService.change(account)
+  @PatchMapping("/{id}")
+  public Mono<ResponseEntity<Account>> change(@RequestBody Account account, @PathVariable("id") String accountId) {
+    log.info("Change an account in the controller.");
+    return accountService.change(account, accountId)
             .flatMap(accountUpdate -> Mono.just(ResponseEntity.ok(accountUpdate)))
             .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
   }
 
   @DeleteMapping("/api/v1/accounts/{id}")
   public Mono<ResponseEntity<Account>> delete(@PathVariable("id") String id) {
-    log.info("delete>>>>>");
+    log.info("Delete an account in the controller.");
     return accountService.remove(id)
             .flatMap(account -> Mono.just(ResponseEntity.ok(account)))
             .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));

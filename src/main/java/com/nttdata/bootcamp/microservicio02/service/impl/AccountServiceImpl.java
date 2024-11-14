@@ -7,10 +7,13 @@ import com.nttdata.bootcamp.microservicio02.repository.AccountRepository;
 import com.nttdata.bootcamp.microservicio02.service.AccountService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ReflectionUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -31,7 +34,7 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   public Mono<Account> create(Account account) {
-    String customerId = account.getCustomer().getId();
+    String customerId = account.getCustomer();
 
     if (customerId.isBlank()) {
       log.warn("Client ID is empty");
@@ -40,8 +43,8 @@ public class AccountServiceImpl implements AccountService {
 
     return findByIdCustomerService(customerId)
             .flatMap(customer -> {
-              account.setCustomer(customer);
-              return validateExistingAccount(customerId, account)
+              account.setCustomer(customer.getId());
+              return validateExistingAccount(customer, account)
                       .flatMap(existingAccount -> {
                         log.info("The client already has an account of this type");
                         return Mono.<Account>empty(); // Si ya existe una cuenta del mismo tipo, detiene el flujo
@@ -51,9 +54,9 @@ public class AccountServiceImpl implements AccountService {
             .doOnError(e -> log.error("Error creating account: ", e));
   }
 
-  private Mono<Account> validateExistingAccount(String customerId, Account account) {
+  private Mono<Account> validateExistingAccount(Customer customer, Account account) {
     String accountTypeCode = account.getAccountType().getCode();
-    String customerType = account.getCustomer().getCustomerType();
+    String customerType = customer.getCustomerType();
 
     // Si el cliente es empresarial
     if (BUSINESS.equals(customerType)) {
@@ -61,7 +64,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     // Si el cliente es personal, verificamos que no tenga una cuenta del mismo tipo.
-    return findByCustomerId(customerId)
+    return findByCustomerId(customer.getId())
             .filter(existingAccount -> existingAccount.getAccountType().equals(account.getAccountType()))
             .hasElements()
             .flatMap(exists -> {
@@ -123,14 +126,14 @@ public class AccountServiceImpl implements AccountService {
 
   private void assignHoldersAndSigners(Account account, Customer customer) {
 
-    List<Customer> holders = new ArrayList<>();
-    holders.add(customer);
+    List<String> holders = new ArrayList<>();
+    holders.add(customer.getId());
 
     if (account.getHolders() != null && !account.getHolders().isEmpty()) {
       holders.addAll(account.getHolders());
     }
 
-    List<Customer> authorizedSigners = new ArrayList<>();
+    List<String> authorizedSigners = new ArrayList<>();
     if (account.getAuthorizedSigners() != null && !account.getAuthorizedSigners().isEmpty()) {
       authorizedSigners.addAll(account.getAuthorizedSigners());
     }
@@ -144,8 +147,8 @@ public class AccountServiceImpl implements AccountService {
     Random accountNumberRandom = new Random();
     account.setAccountNumber(Long.toString(accountNumberRandom.nextLong()));
     account.setCurrency("Soles");
-    account.setStatus("true");
-    account.setAmountAvailable(0.0);
+    account.setActive(true);
+    account.setAmountAvailable(BigDecimal.ZERO);
   }
 
   @Override
@@ -159,15 +162,34 @@ public class AccountServiceImpl implements AccountService {
   }
 
   @Override
-  public Mono<Account> update(Account account) {
+  public Mono<Account> update(Account account, String accountId) {
     return accountRepository.save(account);
   }
 
   @Override
-  public Mono<Account> change(Account account) {
-    return accountRepository.findById(account.getId())
-            .flatMap(accountDB -> {
-              return create(account);
+  public Mono<Account> change(Account account, String accountId) {
+    return accountRepository.findById(accountId)
+            .flatMap(entidadExistente -> {
+              // Iterar sobre los campos del objeto entidadExistente
+              Field[] fields = account.getClass().getDeclaredFields();
+              for (Field field : fields) {
+                if ("id".equals(field.getName())) {
+                  continue; // Saltar el campo 'id'
+                }
+                field.setAccessible(true); // Para acceder a campos privados
+                try {
+                  // Verificar si el valor del campo en entidadParcial no es null
+                  Object value = field.get(account);
+                  if (value != null) {
+                    // Actualizar el campo correspondiente en entidadExistente
+                    ReflectionUtils.setField(field, entidadExistente, value);
+                  }
+                } catch (IllegalAccessException e) {
+                  e.printStackTrace(); // Manejo de errores si hay problemas con la reflexión
+                }
+              }
+              // Guardar la entidad modificada
+              return accountRepository.save(entidadExistente);
             })
             .switchIfEmpty(Mono.empty());
   }
@@ -179,7 +201,6 @@ public class AccountServiceImpl implements AccountService {
             .flatMap(p -> accountRepository.deleteById(p.getId()).thenReturn(p));
   }
 
-  @Override
   public Mono<Customer> findByIdCustomerService(String id) {
     log.info("Getting client with id: [{}]", id);
     return this.webClientCustomer.get()
@@ -192,14 +213,7 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   public Flux<Account> findByCustomerId(String id) {
-    return accountRepository.findByCustomerId(id);
+    return accountRepository.findByCustomer(id);
   }
-
-  @Override
-  public Mono<Account> findAccountByCustomerId(Customer customerId) {
-    return accountRepository.findAccountByCustomerId(customerId);
-  }
-
-
 
 }
