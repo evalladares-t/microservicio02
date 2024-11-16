@@ -29,7 +29,8 @@ public class Account {
   private Integer transactionLimit;
   private Double commissionRate;
   private Boolean active;
+  private Integer dateAllowedTransaction;
   private List<String> holders = new ArrayList<>();  // Lista de titulares
-  private List<String> authorizedSigners = new ArrayList<>();
+  private List<String> authorizedSigners = new ArrayList<>(); // Lista de Firmantes autorizados
 
 }

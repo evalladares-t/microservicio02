@@ -21,32 +21,32 @@ public class AccountController {
     this.accountService = accountService;
   }
 
-  @GetMapping("/{id}")
+  @GetMapping({"/{id}/", "/{id}"})
   public Mono<Account> findbyId(@PathVariable("id") String id) {
     log.info("Find by id a account in the controller.");
     return accountService.findById(id);
   }
 
-  @GetMapping("/list")
+  @GetMapping({"", "/"})
   public Flux<Account> findAll() {
     log.info("List all accounts in the controller.");
     return accountService.findAll();
   }
-  @PostMapping("/")
+  @PostMapping({"", "/"})
   @ResponseStatus(HttpStatus.CREATED)
   public Mono<Account> create(@RequestBody Account account) {
     log.info("Create an account in the controller.");
     return accountService.create(account);
   }
 
-  @PutMapping("/{id}")
+  @PutMapping({"/{id}/", "/{id}"})
   public Mono<ResponseEntity<Account>> update(@RequestBody Account account, @PathVariable("id") String accountId) {
     log.info("Update an account in the controller.");
     return accountService.update(account, accountId)
             .flatMap(accountUpdate -> Mono.just(ResponseEntity.ok(accountUpdate)))
             .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
   }
-  @PatchMapping("/{id}")
+  @PatchMapping({"/{id}/", "/{id}"})
   public Mono<ResponseEntity<Account>> change(@RequestBody Account account, @PathVariable("id") String accountId) {
     log.info("Change an account in the controller.");
     return accountService.change(account, accountId)
@@ -54,7 +54,7 @@ public class AccountController {
             .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
   }
 
-  @DeleteMapping("/api/v1/accounts/{id}")
+  @DeleteMapping({"/{id}/", "/{id}"})
   public Mono<ResponseEntity<Account>> delete(@PathVariable("id") String id) {
     log.info("Delete an account in the controller.");
     return accountService.remove(id)
