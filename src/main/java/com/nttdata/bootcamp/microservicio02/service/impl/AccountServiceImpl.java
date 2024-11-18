@@ -1,12 +1,16 @@
 package com.nttdata.bootcamp.microservicio02.service.impl;
 
 import com.nttdata.bootcamp.microservicio02.model.Account;
-import com.nttdata.bootcamp.microservicio02.model.AccountType;
 import com.nttdata.bootcamp.microservicio02.model.Customer;
 import com.nttdata.bootcamp.microservicio02.repository.AccountRepository;
 import com.nttdata.bootcamp.microservicio02.service.AccountService;
 import com.nttdata.bootcamp.microservicio02.utils.constant.ErrorCode;
 import com.nttdata.bootcamp.microservicio02.utils.exception.OperationNoCompletedException;
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ReflectionUtils;
@@ -14,22 +18,16 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.lang.reflect.Field;
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-
 @Service
 @Slf4j
 public class AccountServiceImpl implements AccountService {
 
   public static final String PERSONAL = "PERSONAL";
-  public static final String  BUSINESS= "BUSINESS";
+  public static final String BUSINESS = "BUSINESS";
   private AccountRepository accountRepository;
   private WebClient webClientCustomer;
 
-  public AccountServiceImpl (AccountRepository accountRepository, WebClient webClientCustomer) {
+  public AccountServiceImpl(AccountRepository accountRepository, WebClient webClientCustomer) {
     this.accountRepository = accountRepository;
     this.webClientCustomer = webClientCustomer;
   }
@@ -46,17 +44,27 @@ public class AccountServiceImpl implements AccountService {
     }
 
     return findByIdCustomerService(customerId)
-            .flatMap(customer -> {
+        .flatMap(
+            customer -> {
               account.setCustomer(customer.getId());
               return validateExistingAccount(customer, account)
-                      .flatMap(existingAccount -> {
+                  .flatMap(
+                      existingAccount -> {
                         log.info("The client already has an account of this type");
-                        return Mono.<Account>empty(); // Si ya existe una cuenta del mismo tipo, detiene el flujo
+                        return Mono
+                            .<Account>
+                                empty(); // Si ya existe una cuenta del mismo tipo, detiene el flujo
                       })
-                      .switchIfEmpty(createAccountByType(account, customer)); // Intenta crear solo si no hay cuenta existente
+                  .switchIfEmpty(
+                      createAccountByType(
+                          account, customer)); // Intenta crear solo si no hay cuenta existente
             })
-            .switchIfEmpty(Mono.error(new OperationNoCompletedException(ErrorCode.ACCOUNT_NO_CREATED.getCode(), ErrorCode.ACCOUNT_NO_CREATED.getMessage())))
-            .doOnError(e -> log.error("Error creating account: ", e));
+        .switchIfEmpty(
+            Mono.error(
+                new OperationNoCompletedException(
+                    ErrorCode.ACCOUNT_NO_CREATED.getCode(),
+                    ErrorCode.ACCOUNT_NO_CREATED.getMessage())))
+        .doOnError(e -> log.error("Error creating account: ", e));
   }
 
   private Mono<Account> validateExistingAccount(Customer customer, Account account) {
@@ -70,12 +78,17 @@ public class AccountServiceImpl implements AccountService {
 
     // Si el cliente es personal, verificamos que no tenga una cuenta del mismo tipo.
     return findByCustomerId(customer.getId())
-            .filter(existingAccount -> existingAccount.getAccountType().equals(account.getAccountType()))
-            .hasElements()
-            .flatMap(exists -> {
+        .filter(
+            existingAccount -> existingAccount.getAccountType().equals(account.getAccountType()))
+        .hasElements()
+        .flatMap(
+            exists -> {
               if (exists) {
                 log.info("The client already has an account of this type");
-                return Mono.error(new OperationNoCompletedException(ErrorCode.ACCOUNT_TYPE_ALREADY.getCode(), ErrorCode.ACCOUNT_TYPE_ALREADY.getMessage()));
+                return Mono.error(
+                    new OperationNoCompletedException(
+                        ErrorCode.ACCOUNT_TYPE_ALREADY.getCode(),
+                        ErrorCode.ACCOUNT_TYPE_ALREADY.getMessage()));
               } else {
                 return Mono.just(account);
               }
@@ -90,39 +103,53 @@ public class AccountServiceImpl implements AccountService {
 
     if (PERSONAL.equals(customerType)) {
       return isPersonalAccountAllowed(accountType, customer)
-              .flatMap(allowed -> {
+          .flatMap(
+              allowed -> {
                 if (allowed) {
                   return accountRepository.insert(account);
                 } else {
                   log.warn("Account type not allowed for this customer");
-                  return Mono.error(new OperationNoCompletedException(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(), ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
+                  return Mono.error(
+                      new OperationNoCompletedException(
+                          ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(),
+                          ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
                 }
               });
     } else if (BUSINESS.equals(customerType)) {
       assignHoldersAndSigners(account, customer);
 
       return isBusinessAccountAllowed(accountType)
-              .flatMap(allowed -> {
+          .flatMap(
+              allowed -> {
                 if (allowed) {
                   return accountRepository.insert(account);
                 } else {
                   log.warn("Account type not allowed for this customer");
-                  return Mono.error(new OperationNoCompletedException(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(), ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
+                  return Mono.error(
+                      new OperationNoCompletedException(
+                          ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(),
+                          ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
                 }
               });
     } else {
       log.warn("Account type not allowed for this customer");
-      return Mono.error(new OperationNoCompletedException(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(), ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
+      return Mono.error(
+          new OperationNoCompletedException(
+              ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(),
+              ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
     }
   }
+
   private Mono<Boolean> isPersonalAccountAllowed(String accountType, Customer customer) {
     // Verifica de forma reactiva si el cliente ya tiene una cuenta del mismo tipo
     return findByCustomerId(customer.getId())
-            .filter(existingAccount -> existingAccount.getAccountType().getCode().equals("001") ||
-                    existingAccount.getAccountType().getCode().equals("002") ||
-                    existingAccount.getAccountType().getCode().equals("003"))
-            .hasElements()
-            .map(exists -> !exists);  // Retorna true si NO existe ya una cuenta del mismo tipo
+        .filter(
+            existingAccount ->
+                existingAccount.getAccountType().getCode().equals("001")
+                    || existingAccount.getAccountType().getCode().equals("002")
+                    || existingAccount.getAccountType().getCode().equals("003"))
+        .hasElements()
+        .map(exists -> !exists); // Retorna true si NO existe ya una cuenta del mismo tipo
   }
 
   private Mono<Boolean> isBusinessAccountAllowed(String accountType) {
@@ -169,19 +196,27 @@ public class AccountServiceImpl implements AccountService {
   @Override
   public Mono<Account> update(Account account, String accountId) {
     log.info("Update a account in the service.");
-    return accountRepository.findById(accountId)
-            .flatMap(customerDB -> {
+    return accountRepository
+        .findById(accountId)
+        .flatMap(
+            customerDB -> {
               account.setId(customerDB.getId());
               return accountRepository.save(account);
             })
-            .switchIfEmpty(Mono.error(new OperationNoCompletedException(ErrorCode.ACCOUNT_NO_UPDATE.getCode(), ErrorCode.ACCOUNT_NO_UPDATE.getMessage())));
+        .switchIfEmpty(
+            Mono.error(
+                new OperationNoCompletedException(
+                    ErrorCode.ACCOUNT_NO_UPDATE.getCode(),
+                    ErrorCode.ACCOUNT_NO_UPDATE.getMessage())));
   }
 
   @Override
   public Mono<Account> change(Account account, String accountId) {
     log.info("Change an account in the service.");
-    return accountRepository.findById(accountId)
-            .flatMap(entidadExistente -> {
+    return accountRepository
+        .findById(accountId)
+        .flatMap(
+            entidadExistente -> {
               // Iterar sobre los campos del objeto entidadExistente
               Field[] fields = account.getClass().getDeclaredFields();
               for (Field field : fields) {
@@ -203,29 +238,31 @@ public class AccountServiceImpl implements AccountService {
               // Guardar la entidad modificada
               return accountRepository.save(entidadExistente);
             })
-            .switchIfEmpty(Mono.error(new OperationNoCompletedException(ErrorCode.ACCOUNT_NO_UPDATE.getCode(), ErrorCode.ACCOUNT_NO_UPDATE.getMessage())));
+        .switchIfEmpty(
+            Mono.error(
+                new OperationNoCompletedException(
+                    ErrorCode.ACCOUNT_NO_UPDATE.getCode(),
+                    ErrorCode.ACCOUNT_NO_UPDATE.getMessage())));
   }
 
   @Override
   public Mono<Account> remove(String accountId) {
     return accountRepository
-            .findById(accountId)
-            .flatMap(p -> accountRepository.deleteById(p.getId()).thenReturn(p));
+        .findById(accountId)
+        .flatMap(p -> accountRepository.deleteById(p.getId()).thenReturn(p));
   }
 
   public Mono<Customer> findByIdCustomerService(String id) {
     log.info("Getting client with id: [{}]", id);
-    return this.webClientCustomer.get()
-            .uri(uriBuilder -> uriBuilder
-                    .path("v1/customers/"+ id)
-                    .build())
-            .retrieve()
-            .bodyToMono(Customer.class);
+    return this.webClientCustomer
+        .get()
+        .uri(uriBuilder -> uriBuilder.path("v1/customers/" + id).build())
+        .retrieve()
+        .bodyToMono(Customer.class);
   }
 
   @Override
   public Flux<Account> findByCustomerId(String id) {
     return accountRepository.findByCustomer(id);
   }
-
 }

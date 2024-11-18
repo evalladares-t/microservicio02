@@ -2,8 +2,6 @@ package com.nttdata.bootcamp.microservicio02.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Getter
 @AllArgsConstructor
@@ -14,5 +12,4 @@ public enum AccountType {
 
   private final String code;
   private final String description;
-
 }

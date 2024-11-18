@@ -6,8 +6,7 @@ import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 
 @Repository
-public interface AccountRepository extends ReactiveMongoRepository<Account,String> {
+public interface AccountRepository extends ReactiveMongoRepository<Account, String> {
 
   Flux<Account> findByCustomer(String id);
-
 }

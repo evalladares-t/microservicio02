@@ -1,5 +1,9 @@
 package com.nttdata.bootcamp.microservicio02.model;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -7,20 +11,13 @@ import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Document(collection = "account")
-
 public class Account {
-  @Id
-  private String id = UUID.randomUUID().toString();
+  @Id private String id = UUID.randomUUID().toString();
   private String accountNumber;
   private String customer;
   private AccountType accountType;
@@ -30,7 +27,6 @@ public class Account {
   private Double commissionRate;
   private Boolean active;
   private Integer dateAllowedTransaction;
-  private List<String> holders = new ArrayList<>();  // Lista de titulares
+  private List<String> holders = new ArrayList<>(); // Lista de titulares
   private List<String> authorizedSigners = new ArrayList<>(); // Lista de Firmantes autorizados
-
 }
