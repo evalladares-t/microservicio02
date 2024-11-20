@@ -76,4 +76,10 @@ public class AccountController {
         .flatMap(account -> Mono.just(ResponseEntity.ok(account)))
         .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
   }
+
+  @GetMapping({"/customer/{id}/", "/customer/{id}"})
+  public Flux<Account> findAccountsByCustomerId(@PathVariable("id") String customerId) {
+    log.info("List all accounts in the controller.");
+    return accountService.findByCustomerId(customerId);
+  }
 }

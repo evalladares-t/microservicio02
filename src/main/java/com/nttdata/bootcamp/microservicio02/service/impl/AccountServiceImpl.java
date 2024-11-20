@@ -195,7 +195,7 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   public Mono<Account> update(Account account, String accountId) {
-    log.info("Update a account in the service.");
+    log.info("Update an account in the service.");
     return accountRepository
         .findById(accountId)
         .flatMap(
