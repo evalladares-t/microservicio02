@@ -1,6 +1,7 @@
 package com.nttdata.bootcamp.microservicio02.expose;
 
 import com.nttdata.bootcamp.microservicio02.model.Account;
+import com.nttdata.bootcamp.microservicio02.model.request.AccountRequest;
 import com.nttdata.bootcamp.microservicio02.service.AccountService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -43,7 +44,7 @@ public class AccountController {
 
   @PostMapping({"", "/"})
   @ResponseStatus(HttpStatus.CREATED)
-  public Mono<Account> create(@RequestBody Account account) {
+  public Mono<Account> create(@RequestBody AccountRequest account) {
     log.info("Create an account in the controller.");
     return accountService.create(account);
   }
@@ -79,7 +80,7 @@ public class AccountController {
 
   @GetMapping({"/customer/{id}/", "/customer/{id}"})
   public Flux<Account> findAccountsByCustomerId(@PathVariable("id") String customerId) {
-    log.info("List all accounts in the controller.");
+    log.info("List all accounts for customerId in the controller.");
     return accountService.findByCustomerId(customerId);
   }
 }

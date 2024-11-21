@@ -1,20 +1,21 @@
 package com.nttdata.bootcamp.microservicio02.service.impl;
 
+import com.nttdata.bootcamp.microservicio02.config.WebClientHelper;
 import com.nttdata.bootcamp.microservicio02.model.Account;
 import com.nttdata.bootcamp.microservicio02.model.Customer;
+import com.nttdata.bootcamp.microservicio02.model.request.AccountRequest;
 import com.nttdata.bootcamp.microservicio02.repository.AccountRepository;
 import com.nttdata.bootcamp.microservicio02.service.AccountService;
 import com.nttdata.bootcamp.microservicio02.utils.constant.ErrorCode;
 import com.nttdata.bootcamp.microservicio02.utils.exception.OperationNoCompletedException;
+import com.nttdata.bootcamp.microservicio02.utils.mapper.AccountMapper;
 import java.lang.reflect.Field;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ReflectionUtils;
-import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -25,16 +26,16 @@ public class AccountServiceImpl implements AccountService {
   public static final String PERSONAL = "PERSONAL";
   public static final String BUSINESS = "BUSINESS";
   private AccountRepository accountRepository;
-  private WebClient webClientCustomer;
+  private WebClientHelper webClientHelper;
 
-  public AccountServiceImpl(AccountRepository accountRepository, WebClient webClientCustomer) {
+  public AccountServiceImpl(AccountRepository accountRepository, WebClientHelper webClientHelper) {
     this.accountRepository = accountRepository;
-    this.webClientCustomer = webClientCustomer;
+    this.webClientHelper = webClientHelper;
   }
 
   @Override
-  public Mono<Account> create(Account account) {
-    String customerId = account.getCustomer();
+  public Mono<Account> create(AccountRequest accountRequest) {
+    String customerId = accountRequest.getCustomer();
 
     log.info("Create an account in the service.");
 
@@ -42,8 +43,9 @@ public class AccountServiceImpl implements AccountService {
       log.warn("Client ID is empty");
       return Mono.empty();
     }
-
-    return findByIdCustomerService(customerId)
+    Account account = AccountMapper.toDTO(accountRequest);
+    return webClientHelper
+        .findByIdCustomerService(customerId)
         .flatMap(
             customer -> {
               account.setCustomer(customer.getId());
@@ -180,7 +182,6 @@ public class AccountServiceImpl implements AccountService {
     account.setAccountNumber(Long.toString(accountNumberRandom.nextLong()));
     account.setCurrency("Soles");
     account.setActive(true);
-    account.setAmountAvailable(BigDecimal.ZERO);
   }
 
   @Override
@@ -250,15 +251,6 @@ public class AccountServiceImpl implements AccountService {
     return accountRepository
         .findById(accountId)
         .flatMap(p -> accountRepository.deleteById(p.getId()).thenReturn(p));
-  }
-
-  public Mono<Customer> findByIdCustomerService(String id) {
-    log.info("Getting client with id: [{}]", id);
-    return this.webClientCustomer
-        .get()
-        .uri(uriBuilder -> uriBuilder.path("v1/customers/" + id).build())
-        .retrieve()
-        .bodyToMono(Customer.class);
   }
 
   @Override
