@@ -14,7 +14,7 @@
     <name>microservicio02</name>
     <description>microservicio02</description>
     <properties>
-        <java.version>22</java.version>
+        <java.version>20</java.version>
         <spring-cloud.version>2023.0.3</spring-cloud.version>
     </properties>
     <dependencies>
@@ -70,6 +70,12 @@
             <version>10.13.0</version>
             <scope>provided</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
     </dependencies>
 
     <dependencyManagement>
@@ -149,7 +155,6 @@
                 <version>3.4.0</version>
                 <configuration>
                     <configLocation>google_checks.xml</configLocation>
-                    <suppressionsLocation>${org.checkstyle.google.suppressionfilter.config}</suppressionsLocation>
                 </configuration>
 
                 <reportSets>

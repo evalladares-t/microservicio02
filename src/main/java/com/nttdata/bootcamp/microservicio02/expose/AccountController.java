@@ -20,7 +20,7 @@ import reactor.core.publisher.Mono;
 
 @RestController
 @Slf4j
-@RequestMapping("api/v1/account")
+@RequestMapping("api/v1/accounts")
 public class AccountController {
 
   private AccountService accountService;
