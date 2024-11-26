@@ -15,8 +15,8 @@ public class WebClientConfig {
   @Value("${application.endpoints.url.customer}")
   private String urlEndpointCustomer;
 
-  @Value("${application.endpoints.url.transaction}")
-  private String urlEndpointTransaction;
+  @Value("${application.endpoints.url.credit}")
+  private String urlEndpointCredit;
 
   @Bean
   public WebClient webClientCustomer() {
@@ -31,9 +31,9 @@ public class WebClientConfig {
   }
 
   @Bean
-  public WebClient webClientTransaction() {
+  public WebClient webClientCredit() {
     return WebClient.builder()
-        .baseUrl(urlEndpointTransaction)
+        .baseUrl(urlEndpointCredit)
         .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
         .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
         .filter(
@@ -41,4 +41,5 @@ public class WebClientConfig {
                 next.exchange(request).doOnError(e -> log.info("WebClient request error", e)))
         .build();
   }
+
 }

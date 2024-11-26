@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import org.springframework.beans.BeanUtils;
 
 public class AccountMapper {
-  public static Account toDTO(AccountRequest accountRequest) {
+  public static Account accountRequestToAccount(AccountRequest accountRequest) {
     Account account = new Account();
     BeanUtils.copyProperties(accountRequest, account);
     account.setAmountAvailable(BigDecimal.ZERO);

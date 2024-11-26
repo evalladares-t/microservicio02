@@ -27,6 +27,8 @@ public class Account {
   private Double commissionRate;
   private Boolean active;
   private Integer dateAllowedTransaction;
+  private BigDecimal dailyAverageMonth;
+  private Boolean isDailyAverageMonth;
   private List<String> holders = new ArrayList<>(); // Lista de titulares
   private List<String> authorizedSigners = new ArrayList<>(); // Lista de Firmantes autorizados
 }

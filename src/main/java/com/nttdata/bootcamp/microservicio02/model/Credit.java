@@ -9,13 +9,9 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Customer {
-
+public class Credit {
   private String id;
-  private String customerType;
-  private String customerSubType;
-  private String firstName;
-  private String lastName;
-  private DocumentIdentity documentIdentity;
-  private Boolean isActive;
+  private String customerId;
+  private CreditType creditType;
+  private Boolean active;
 }

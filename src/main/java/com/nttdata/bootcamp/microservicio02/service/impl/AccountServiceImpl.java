@@ -2,6 +2,9 @@ package com.nttdata.bootcamp.microservicio02.service.impl;
 
 import com.nttdata.bootcamp.microservicio02.config.WebClientHelper;
 import com.nttdata.bootcamp.microservicio02.model.Account;
+import com.nttdata.bootcamp.microservicio02.model.AccountType;
+import com.nttdata.bootcamp.microservicio02.model.Credit;
+import com.nttdata.bootcamp.microservicio02.model.CreditType;
 import com.nttdata.bootcamp.microservicio02.model.Customer;
 import com.nttdata.bootcamp.microservicio02.model.request.AccountRequest;
 import com.nttdata.bootcamp.microservicio02.repository.AccountRepository;
@@ -25,6 +28,8 @@ public class AccountServiceImpl implements AccountService {
 
   public static final String PERSONAL = "PERSONAL";
   public static final String BUSINESS = "BUSINESS";
+  public static final String VIP = "VIP";
+
   private AccountRepository accountRepository;
   private WebClientHelper webClientHelper;
 
@@ -43,20 +48,13 @@ public class AccountServiceImpl implements AccountService {
       log.warn("Client ID is empty");
       return Mono.empty();
     }
-    Account account = AccountMapper.toDTO(accountRequest);
+    Account account = AccountMapper.accountRequestToAccount(accountRequest);
     return webClientHelper
         .findByIdCustomerService(customerId)
         .flatMap(
             customer -> {
               account.setCustomer(customer.getId());
               return validateExistingAccount(customer, account)
-                  .flatMap(
-                      existingAccount -> {
-                        log.info("The client already has an account of this type");
-                        return Mono
-                            .<Account>
-                                empty(); // Si ya existe una cuenta del mismo tipo, detiene el flujo
-                      })
                   .switchIfEmpty(
                       createAccountByType(
                           account, customer)); // Intenta crear solo si no hay cuenta existente
@@ -92,7 +90,7 @@ public class AccountServiceImpl implements AccountService {
                         ErrorCode.ACCOUNT_TYPE_ALREADY.getCode(),
                         ErrorCode.ACCOUNT_TYPE_ALREADY.getMessage()));
               } else {
-                return Mono.just(account);
+                return Mono.empty();
               }
             });
   }
@@ -100,27 +98,29 @@ public class AccountServiceImpl implements AccountService {
   private Mono<Account> createAccountByType(Account account, Customer customer) {
     setCommonAccountProperties(account); // Configura propiedades comunes de la cuenta
 
-    String accountType = account.getAccountType().getCode();
-    String customerType = customer.getCustomerType();
-
-    if (PERSONAL.equals(customerType)) {
-      return isPersonalAccountAllowed(accountType, customer)
-          .flatMap(
-              allowed -> {
-                if (allowed) {
-                  return accountRepository.insert(account);
-                } else {
-                  log.warn("Account type not allowed for this customer");
-                  return Mono.error(
-                      new OperationNoCompletedException(
-                          ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(),
-                          ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
-                }
-              });
-    } else if (BUSINESS.equals(customerType)) {
+    if (PERSONAL.equals(customer.getCustomerType())) {
+      if (VIP.equals(customer.getCustomerSubType())
+          && account.getAccountType().equals(AccountType.SAVING)) {
+        return this.isPersonalVipAccountAllowedCustomer(customer)
+            .flatMap(
+                allowed -> {
+                  if (allowed) {
+                    account.setIsDailyAverageMonth(true);
+                    return accountRepository.insert(account);
+                  } else {
+                    log.warn("Account type not allowed for this customer 1 ");
+                    return Mono.error(
+                        new OperationNoCompletedException(
+                            ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(),
+                            ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
+                  }
+                });
+      }
+      return accountRepository.insert(account);
+    } else if (BUSINESS.equals(customer.getCustomerType())) {
       assignHoldersAndSigners(account, customer);
 
-      return isBusinessAccountAllowed(accountType)
+      return isBusinessAccountAllowed(account.getAccountType())
           .flatMap(
               allowed -> {
                 if (allowed) {
@@ -142,20 +142,18 @@ public class AccountServiceImpl implements AccountService {
     }
   }
 
-  private Mono<Boolean> isPersonalAccountAllowed(String accountType, Customer customer) {
-    // Verifica de forma reactiva si el cliente ya tiene una cuenta del mismo tipo
-    return findByCustomerId(customer.getId())
-        .filter(
-            existingAccount ->
-                existingAccount.getAccountType().getCode().equals("001")
-                    || existingAccount.getAccountType().getCode().equals("002")
-                    || existingAccount.getAccountType().getCode().equals("003"))
-        .hasElements()
-        .map(exists -> !exists); // Retorna true si NO existe ya una cuenta del mismo tipo
+  private Mono<Boolean> isPersonalVipAccountAllowedCustomer(Customer customer) {
+
+    return webClientHelper
+        .findByIdCreditService(customer.getId())
+        .filter(Credit::getActive)
+        .filter(existingAccount -> existingAccount.getCreditType().equals(CreditType.CARD_BANK))
+        .hasElements();
+    // .onErrorReturn(false);
   }
 
-  private Mono<Boolean> isBusinessAccountAllowed(String accountType) {
-    return Mono.just("002".equals(accountType));
+  private Mono<Boolean> isBusinessAccountAllowed(AccountType accountType) {
+    return Mono.just(AccountType.CURRENT.equals(accountType));
   }
 
   private void assignHoldersAndSigners(Account account, Customer customer) {

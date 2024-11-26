@@ -1,10 +1,11 @@
 package com.nttdata.bootcamp.microservicio02.config;
 
+import com.nttdata.bootcamp.microservicio02.model.Credit;
 import com.nttdata.bootcamp.microservicio02.model.Customer;
-import com.nttdata.bootcamp.microservicio02.model.dto.TransactionCreateDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Slf4j
@@ -12,11 +13,14 @@ import reactor.core.publisher.Mono;
 public class WebClientHelper {
 
   private WebClient webClientCustomer;
-  private WebClient webClientTransaction;
+  private WebClient webClientCredit;
 
-  public WebClientHelper(WebClient webClientCustomer, WebClient webClientTransaction) {
+  // private WebClient webClientTransaction;
+
+  public WebClientHelper(WebClient webClientCustomer, WebClient webClientCredit) {
     this.webClientCustomer = webClientCustomer;
-    this.webClientTransaction = webClientTransaction;
+    this.webClientCredit = webClientCredit;
+    // this.webClientTransaction = webClientTransaction;
   }
 
   public Mono<Customer> findByIdCustomerService(String id) {
@@ -33,14 +37,17 @@ public class WebClientHelper {
             });
   }
 
-  public Mono<TransactionCreateDto> createTransactionWithAccountId(
-      TransactionCreateDto transactionCreateDto) {
-    log.info("Create transaction with accountId: [{}]", transactionCreateDto.getAccountId());
-    return this.webClientTransaction
-        .post()
-        .uri(uriBuilder -> uriBuilder.path("v1/transactions/").build())
-        .bodyValue(transactionCreateDto)
+  public Flux<Credit> findByIdCreditService(String id) {
+    log.info("Getting credit with id: [{}]", id);
+    return this.webClientCredit
+        .get()
+        .uri(uriBuilder -> uriBuilder.path("v1/credits/customer/" + id).build())
         .retrieve()
-        .bodyToMono(TransactionCreateDto.class);
+        .bodyToFlux(Credit.class)
+        .onErrorResume(
+            error -> {
+              System.err.println("Error during call: " + error.getMessage());
+              return Flux.empty();
+            });
   }
 }

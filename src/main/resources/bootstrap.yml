@@ -1,10 +1,7 @@
 
-application:
-  endpoints:
-    url: http://localhost:8081/api/
-
 spring:
   application:
     name: microservicio02
   profiles:
     active: local
+max
