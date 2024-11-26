@@ -4,4 +4,3 @@ spring:
     name: microservicio02
   profiles:
     active: local
-max

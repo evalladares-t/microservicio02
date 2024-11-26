@@ -41,5 +41,4 @@ public class WebClientConfig {
                 next.exchange(request).doOnError(e -> log.info("WebClient request error", e)))
         .build();
   }
-
 }

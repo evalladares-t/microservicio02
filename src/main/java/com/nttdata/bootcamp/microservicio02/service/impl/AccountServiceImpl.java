@@ -30,6 +30,8 @@ public class AccountServiceImpl implements AccountService {
   public static final String BUSINESS = "BUSINESS";
   public static final String VIP = "VIP";
 
+  public static final String PYME = "PYME";
+
   private AccountRepository accountRepository;
   private WebClientHelper webClientHelper;
 
@@ -99,57 +101,65 @@ public class AccountServiceImpl implements AccountService {
     setCommonAccountProperties(account); // Configura propiedades comunes de la cuenta
 
     if (PERSONAL.equals(customer.getCustomerType())) {
-      if (VIP.equals(customer.getCustomerSubType())
-          && account.getAccountType().equals(AccountType.SAVING)) {
-        return this.isPersonalVipAccountAllowedCustomer(customer)
-            .flatMap(
-                allowed -> {
-                  if (allowed) {
-                    account.setIsDailyAverageMonth(true);
-                    return accountRepository.insert(account);
-                  } else {
-                    log.warn("Account type not allowed for this customer 1 ");
-                    return Mono.error(
-                        new OperationNoCompletedException(
-                            ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(),
-                            ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
-                  }
-                });
-      }
-      return accountRepository.insert(account);
+      return handlePersonalCustomer(account, customer);
     } else if (BUSINESS.equals(customer.getCustomerType())) {
       assignHoldersAndSigners(account, customer);
-
-      return isBusinessAccountAllowed(account.getAccountType())
-          .flatMap(
-              allowed -> {
-                if (allowed) {
-                  return accountRepository.insert(account);
-                } else {
-                  log.warn("Account type not allowed for this customer");
-                  return Mono.error(
-                      new OperationNoCompletedException(
-                          ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(),
-                          ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
-                }
-              });
+      return handleBusinessCustomer(account, customer);
     } else {
-      log.warn("Account type not allowed for this customer");
-      return Mono.error(
-          new OperationNoCompletedException(
-              ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(),
-              ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
+      return accountTypeNotAllowed();
     }
   }
 
-  private Mono<Boolean> isPersonalVipAccountAllowedCustomer(Customer customer) {
+  private Mono<Account> handlePersonalCustomer(Account account, Customer customer) {
+    if (VIP.equals(customer.getCustomerSubType())
+        && AccountType.SAVING.equals(account.getAccountType())) {
+      return customerWithCardBankActive(customer)
+          .flatMap(
+              allowed -> {
+                if (allowed) {
+                  account.setIsDailyAverageMonth(true);
+                  return accountRepository.insert(account);
+                } else {
+                  return accountTypeNotAllowed();
+                }
+              });
+    }
+    return accountRepository.insert(account);
+  }
+
+  private Mono<Account> handleBusinessCustomer(Account account, Customer customer) {
+    return isBusinessAccountAllowed(account.getAccountType())
+        .flatMap(
+            allowed -> {
+              if (allowed) {
+                if (PYME.equals(customer.getCustomerSubType())) {
+                  return customerWithCardBankActive(customer)
+                      .flatMap(
+                          exists ->
+                              exists ? accountRepository.insert(account) : accountTypeNotAllowed());
+                }
+                return accountRepository.insert(account);
+              } else {
+                return accountTypeNotAllowed();
+              }
+            });
+  }
+
+  private Mono<Account> accountTypeNotAllowed() {
+    log.warn("Account type not allowed for this customer");
+    return Mono.error(
+        new OperationNoCompletedException(
+            ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(),
+            ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
+  }
+
+  private Mono<Boolean> customerWithCardBankActive(Customer customer) {
 
     return webClientHelper
         .findByIdCreditService(customer.getId())
         .filter(Credit::getActive)
         .filter(existingAccount -> existingAccount.getCreditType().equals(CreditType.CARD_BANK))
         .hasElements();
-    // .onErrorReturn(false);
   }
 
   private Mono<Boolean> isBusinessAccountAllowed(AccountType accountType) {
