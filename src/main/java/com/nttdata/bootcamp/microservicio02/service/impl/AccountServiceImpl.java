@@ -1,11 +1,7 @@
 package com.nttdata.bootcamp.microservicio02.service.impl;
 
 import com.nttdata.bootcamp.microservicio02.config.WebClientHelper;
-import com.nttdata.bootcamp.microservicio02.model.Account;
-import com.nttdata.bootcamp.microservicio02.model.AccountType;
-import com.nttdata.bootcamp.microservicio02.model.Credit;
-import com.nttdata.bootcamp.microservicio02.model.CreditType;
-import com.nttdata.bootcamp.microservicio02.model.Customer;
+import com.nttdata.bootcamp.microservicio02.model.*;
 import com.nttdata.bootcamp.microservicio02.model.request.AccountRequest;
 import com.nttdata.bootcamp.microservicio02.repository.AccountRepository;
 import com.nttdata.bootcamp.microservicio02.service.AccountService;
@@ -13,6 +9,7 @@ import com.nttdata.bootcamp.microservicio02.utils.constant.ErrorCode;
 import com.nttdata.bootcamp.microservicio02.utils.exception.OperationNoCompletedException;
 import com.nttdata.bootcamp.microservicio02.utils.mapper.AccountMapper;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -29,7 +26,6 @@ public class AccountServiceImpl implements AccountService {
   public static final String PERSONAL = "PERSONAL";
   public static final String BUSINESS = "BUSINESS";
   public static final String VIP = "VIP";
-
   public static final String PYME = "PYME";
 
   private AccountRepository accountRepository;
@@ -48,7 +44,7 @@ public class AccountServiceImpl implements AccountService {
 
     if (customerId.isBlank()) {
       log.warn("Client ID is empty");
-      return Mono.empty();
+      return accountNotAllowed(ErrorCode.INVALID_REQUEST);
     }
     Account account = AccountMapper.accountRequestToAccount(accountRequest);
     return webClientHelper
@@ -61,11 +57,7 @@ public class AccountServiceImpl implements AccountService {
                       createAccountByType(
                           account, customer)); // Intenta crear solo si no hay cuenta existente
             })
-        .switchIfEmpty(
-            Mono.error(
-                new OperationNoCompletedException(
-                    ErrorCode.ACCOUNT_NO_CREATED.getCode(),
-                    ErrorCode.ACCOUNT_NO_CREATED.getMessage())))
+        .switchIfEmpty(accountNotAllowed(ErrorCode.ACCOUNT_NO_CREATED))
         .doOnError(e -> log.error("Error creating account: ", e));
   }
 
@@ -86,11 +78,8 @@ public class AccountServiceImpl implements AccountService {
         .flatMap(
             exists -> {
               if (exists) {
-                log.info("The client already has an account of this type");
-                return Mono.error(
-                    new OperationNoCompletedException(
-                        ErrorCode.ACCOUNT_TYPE_ALREADY.getCode(),
-                        ErrorCode.ACCOUNT_TYPE_ALREADY.getMessage()));
+                log.error("The client already has an account of this type");
+                return accountNotAllowed(ErrorCode.ACCOUNT_TYPE_ALREADY);
               } else {
                 return Mono.empty();
               }
@@ -106,7 +95,7 @@ public class AccountServiceImpl implements AccountService {
       assignHoldersAndSigners(account, customer);
       return handleBusinessCustomer(account, customer);
     } else {
-      return accountTypeNotAllowed();
+      return accountNotAllowed(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED);
     }
   }
 
@@ -118,13 +107,13 @@ public class AccountServiceImpl implements AccountService {
               allowed -> {
                 if (allowed) {
                   account.setIsDailyAverageMonth(true);
-                  return accountRepository.insert(account);
+                  return createAccount(account);
                 } else {
-                  return accountTypeNotAllowed();
+                  return accountNotAllowed(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED);
                 }
               });
     }
-    return accountRepository.insert(account);
+    return createAccount(account);
   }
 
   private Mono<Account> handleBusinessCustomer(Account account, Customer customer) {
@@ -134,23 +123,32 @@ public class AccountServiceImpl implements AccountService {
               if (allowed) {
                 if (PYME.equals(customer.getCustomerSubType())) {
                   return customerWithCardBankActive(customer)
-                      .flatMap(
-                          exists ->
-                              exists ? accountRepository.insert(account) : accountTypeNotAllowed());
+                      .flatMap(exists -> exists ? createAccount(account) : accountNotAllowed(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED));
                 }
-                return accountRepository.insert(account);
+                return createAccount(account);
               } else {
-                return accountTypeNotAllowed();
+                return accountNotAllowed(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED);
               }
             });
   }
 
-  private Mono<Account> accountTypeNotAllowed() {
-    log.warn("Account type not allowed for this customer");
-    return Mono.error(
-        new OperationNoCompletedException(
-            ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getCode(),
-            ErrorCode.ACCOUNT_TYPE_NO_ALLOWED.getMessage()));
+  private Mono<Account> createAccount(Account account) {
+
+    if (account.getAmountAvailable().compareTo(BigDecimal.ZERO) > 0) {
+      webClientHelper
+          .createTransactionWithOpeningAmount(buildOpeningTransaction(account))
+          .subscribe();
+    }
+
+    return accountRepository.insert(account);
+  }
+
+  private Transaction buildOpeningTransaction(Account account) {
+    Transaction transaction = new Transaction();
+    transaction.setAccountId(account.getId());
+    transaction.setAmount(account.getAmountAvailable());
+    transaction.setTransactionType("OPENING_AMOUNT");
+    return transaction;
   }
 
   private Mono<Boolean> customerWithCardBankActive(Customer customer) {
@@ -212,11 +210,7 @@ public class AccountServiceImpl implements AccountService {
               account.setId(customerDB.getId());
               return accountRepository.save(account);
             })
-        .switchIfEmpty(
-            Mono.error(
-                new OperationNoCompletedException(
-                    ErrorCode.ACCOUNT_NO_UPDATE.getCode(),
-                    ErrorCode.ACCOUNT_NO_UPDATE.getMessage())));
+        .switchIfEmpty(accountNotAllowed(ErrorCode.ACCOUNT_NO_UPDATE));
   }
 
   @Override
@@ -247,11 +241,7 @@ public class AccountServiceImpl implements AccountService {
               // Guardar la entidad modificada
               return accountRepository.save(entidadExistente);
             })
-        .switchIfEmpty(
-            Mono.error(
-                new OperationNoCompletedException(
-                    ErrorCode.ACCOUNT_NO_UPDATE.getCode(),
-                    ErrorCode.ACCOUNT_NO_UPDATE.getMessage())));
+        .switchIfEmpty(accountNotAllowed(ErrorCode.ACCOUNT_NO_UPDATE));
   }
 
   @Override
@@ -264,5 +254,11 @@ public class AccountServiceImpl implements AccountService {
   @Override
   public Flux<Account> findByCustomerId(String id) {
     return accountRepository.findByCustomer(id);
+  }
+
+  private Mono<Account> accountNotAllowed(ErrorCode errorCode) {
+    log.warn("Account type not allowed for this customer");
+    return Mono.error(
+        new OperationNoCompletedException(errorCode.getCode(), errorCode.getMessage()));
   }
 }
