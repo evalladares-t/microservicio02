@@ -25,6 +25,8 @@ public class Account {
   private BigDecimal amountAvailable;
   private Integer transactionLimit;
   private Double commissionRate;
+  private Integer commissionTransactionLimit;
+  private Integer commissionRateForTransactionLimit;
   private Boolean active;
   private Integer dateAllowedTransaction;
   private BigDecimal dailyAverageMonth;
