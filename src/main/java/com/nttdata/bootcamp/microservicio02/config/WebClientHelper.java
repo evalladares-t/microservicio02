@@ -4,6 +4,7 @@ import com.nttdata.bootcamp.microservicio02.model.Credit;
 import com.nttdata.bootcamp.microservicio02.model.Customer;
 import com.nttdata.bootcamp.microservicio02.model.Transaction;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -13,17 +14,11 @@ import reactor.core.publisher.Mono;
 @Configuration
 public class WebClientHelper {
 
-  private WebClient webClientCustomer;
-  private WebClient webClientCredit;
+  @Autowired private WebClient webClientCustomer;
 
-  private WebClient webClientTransaction;
+  @Autowired private WebClient webClientCredit;
 
-  public WebClientHelper(
-      WebClient webClientCustomer, WebClient webClientCredit, WebClient webClientTransaction) {
-    this.webClientCustomer = webClientCustomer;
-    this.webClientCredit = webClientCredit;
-    this.webClientTransaction = webClientTransaction;
-  }
+  @Autowired private WebClient webClientTransaction;
 
   public Mono<Customer> findByIdCustomerService(String id) {
     log.info("Getting client with id: [{}]", id);
@@ -34,7 +29,7 @@ public class WebClientHelper {
         .bodyToMono(Customer.class)
         .onErrorResume(
             error -> {
-              System.err.println("Error during call: " + error.getMessage());
+              log.error("Error during call: " + error.getMessage());
               return Mono.empty();
             });
   }
@@ -48,7 +43,7 @@ public class WebClientHelper {
         .bodyToFlux(Credit.class)
         .onErrorResume(
             error -> {
-              System.err.println("Error during call: " + error.getMessage());
+              log.error("Error during call: " + error.getMessage());
               return Flux.empty();
             });
   }
@@ -63,7 +58,7 @@ public class WebClientHelper {
         .bodyToMono(Transaction.class)
         .onErrorResume(
             error -> {
-              System.err.println("Error during call: " + error.getMessage());
+              log.error("Error during call: " + error.getMessage());
               return Mono.empty();
             });
   }

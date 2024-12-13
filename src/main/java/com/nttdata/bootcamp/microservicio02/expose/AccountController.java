@@ -4,6 +4,7 @@ import com.nttdata.bootcamp.microservicio02.model.Account;
 import com.nttdata.bootcamp.microservicio02.model.request.AccountRequest;
 import com.nttdata.bootcamp.microservicio02.service.AccountService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,11 +25,9 @@ import reactor.core.publisher.Mono;
 @RequestMapping("api/v1/accounts")
 public class AccountController {
 
+  @Autowired
   private AccountService accountService;
 
-  public AccountController(AccountService accountService) {
-    this.accountService = accountService;
-  }
 
   @GetMapping({"/{id}/", "/{id}"})
   public Mono<Account> findbyId(@PathVariable("id") String id) {

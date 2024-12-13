@@ -12,6 +12,6 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Transaction {
   private String accountId;
-  private String transactionType;
+  private TransactionType transactionType;
   private BigDecimal amount;
 }

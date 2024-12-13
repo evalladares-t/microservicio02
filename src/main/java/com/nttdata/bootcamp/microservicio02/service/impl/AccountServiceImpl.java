@@ -12,8 +12,10 @@ import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ReflectionUtils;
 import reactor.core.publisher.Flux;
@@ -28,13 +30,9 @@ public class AccountServiceImpl implements AccountService {
   public static final String VIP = "VIP";
   public static final String PYME = "PYME";
 
-  private AccountRepository accountRepository;
-  private WebClientHelper webClientHelper;
+  @Autowired private AccountRepository accountRepository;
 
-  public AccountServiceImpl(AccountRepository accountRepository, WebClientHelper webClientHelper) {
-    this.accountRepository = accountRepository;
-    this.webClientHelper = webClientHelper;
-  }
+  @Autowired private WebClientHelper webClientHelper;
 
   @Override
   public Mono<Account> create(AccountRequest accountRequest) {
@@ -87,15 +85,16 @@ public class AccountServiceImpl implements AccountService {
   }
 
   private Mono<Account> createAccountByType(Account account, Customer customer) {
-    setCommonAccountProperties(account); // Configura propiedades comunes de la cuenta
+    setCommonAccountProperties(account);
 
-    if (PERSONAL.equals(customer.getCustomerType())) {
-      return handlePersonalCustomer(account, customer);
-    } else if (BUSINESS.equals(customer.getCustomerType())) {
-      assignHoldersAndSigners(account, customer);
-      return handleBusinessCustomer(account, customer);
-    } else {
-      return accountNotAllowed(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED);
+    switch (customer.getCustomerType()) {
+      case PERSONAL:
+        return handlePersonalCustomer(account, customer);
+      case BUSINESS:
+        assignHoldersAndSigners(account, customer);
+        return handleBusinessCustomer(account, customer);
+      default:
+        return accountNotAllowed(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED);
     }
   }
 
@@ -123,7 +122,11 @@ public class AccountServiceImpl implements AccountService {
               if (allowed) {
                 if (PYME.equals(customer.getCustomerSubType())) {
                   return customerWithCardBankActive(customer)
-                      .flatMap(exists -> exists ? createAccount(account) : accountNotAllowed(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED));
+                      .flatMap(
+                          exists ->
+                              exists
+                                  ? createAccount(account)
+                                  : accountNotAllowed(ErrorCode.ACCOUNT_TYPE_NO_ALLOWED));
                 }
                 return createAccount(account);
               } else {
@@ -147,7 +150,7 @@ public class AccountServiceImpl implements AccountService {
     Transaction transaction = new Transaction();
     transaction.setAccountId(account.getId());
     transaction.setAmount(account.getAmountAvailable());
-    transaction.setTransactionType("OPENING_AMOUNT");
+    transaction.setTransactionType(TransactionType.OPENING_AMOUNT);
     return transaction;
   }
 
@@ -229,11 +232,8 @@ public class AccountServiceImpl implements AccountService {
                 field.setAccessible(true); // Para acceder a campos privados
                 try {
                   // Verificar si el valor del campo en entidadParcial no es null
-                  Object value = field.get(account);
-                  if (value != null) {
-                    // Actualizar el campo correspondiente en entidadExistente
-                    ReflectionUtils.setField(field, entidadExistente, value);
-                  }
+                  Optional.ofNullable(field.get(account))
+                          .ifPresent(value -> ReflectionUtils.setField(field, entidadExistente, value));
                 } catch (IllegalAccessException e) {
                   e.printStackTrace(); // Manejo de errores si hay problemas con la reflexión
                 }
@@ -245,10 +245,15 @@ public class AccountServiceImpl implements AccountService {
   }
 
   @Override
-  public Mono<Account> remove(String accountId) {
+  public Mono<Account> remove(String customerId) {
+    log.info("Delete a customer in the service.");
     return accountRepository
-        .findById(accountId)
-        .flatMap(p -> accountRepository.deleteById(p.getId()).thenReturn(p));
+        .findById(customerId)
+        .switchIfEmpty(accountNotAllowed(ErrorCode.DATA_NOT_FOUND))
+        .filter(p -> p.getActive().equals(true))
+        .switchIfEmpty(accountNotAllowed(ErrorCode.ACCOUNT_NO_DELETED))
+        .doOnNext(p -> p.setActive(false))
+        .flatMap(accountRepository::save);
   }
 
   @Override
